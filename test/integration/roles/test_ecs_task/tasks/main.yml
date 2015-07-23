@@ -1,0 +1,149 @@
+---
+#
+# Setup
+#
+
+- name: Create cluster
+  ecs_cluster:
+    name: "{{ new_cluster }}"
+    state: present
+  register: result
+
+- name: Show outputs
+  debug: var="result.cluster"
+  when: debug is defined and debug
+
+- name: "Create task definition"
+  ecs_taskdefinition:
+    containers:
+    - name: simple-app
+      cpu: 10
+      essential: true
+      image: "httpd:2.4"
+      memory: 300
+      mountPoints:
+      - containerPath: /usr/local/apache2/htdocs
+        sourceVolume: my-vol
+      portMappings:
+      - containerPort: 80
+        hostPort: 80
+    - name: busybox
+      command:
+        - "/bin/sh -c \"while true; do echo '<html> <head> <title>Amazon ECS Sample App</title> <style>body {margin-top: 40px; background-color: #333;} </style> </head><body> <div style=color:white;text-align:center> <h1>Amazon ECS Sample App</h1> <h2>Congratulations!</h2> <p>Your application is now running on a container in Amazon ECS.</p>' > top; /bin/date > date ; echo '</div></body></html>' > bottom; cat top date bottom > /usr/local/apache2/htdocs/index.html ; sleep 1; done\""
+      cpu: 10
+      entryPoint:
+      - sh
+      - "-c"
+      essential: false
+      image: busybox
+      memory: 200
+      volumesFrom:
+      - sourceContainer: simple-app
+    volumes:
+    - name: my-vol
+    family: "{{ new_cluster ~ '-task'}}"
+    state: present
+  register: task_output
+
+- name: "Show outputs"
+  debug: var="task_output"
+  when: debug is defined and debug
+
+- name: "Get task definitions with details"
+  ecs_taskdefinition_facts:
+    name: "{{ new_cluster ~ '-task' }}"
+    details: "true"
+  register: task_output
+
+- name: "assert ansible_facts exist for cluster"
+  assert:
+    that:
+      - '"ansible_facts" in task_output'
+      - '"task_definitions" in task_output.ansible_facts'
+
+- name: "get arn of task"
+  set_fact:
+    task_arn: "{{ task_output.ansible_facts.task_definitions.taskDefinitionArn }}"
+
+#
+# Container Instance Strategy:
+#  - have an instance tagged 'ECS-Cluster-pool'
+#  - scp to it a new /etc/ecs/ecs.config with
+#       ECS_CLUSTER=test-cluster-<ourname>
+#  - reboot it
+#  - wait for it to join the cluster 
+#
+  # hostvars: "tag_ECS_Cluster_Pool_available": [
+  #   "52.26.140.159"
+  # ],
+- name: OUTPUT Inventory
+  debug: var=hostvars
+
+- name: Find a compatible EC2 instance ip
+  set_fact:
+    ec2_instance_ip = "{{ hostvars['tag_ECS_Cluster_Pool_available'][0] }}"
+  ignore_errors: true
+  when: "'tag_ECS_Cluster_Pool_available' is in hostvars"
+
+- name: Is there one available?
+  fail: msg="No EC2 instances with tag 'ECS_Cluster_Pool' = available"
+  when: ec2_instance_ip is not defined
+
+- name: Find a compatible EC2 instance id
+  set_fact:
+    ec2_instance_id = "{{ hostvars[ec2_instance_ip]['ec2_id'] }}"
+
+- name: Launch/restart instance
+  ec2:
+    state: 'present'
+    instance_ids: '{{ ec2_instance_id }}'
+
+- name: set its tag to not available
+  ec2_tag: resource={{ ec2_instance_id }} state=present
+  args:
+    tags:
+      ECS_Cluster_Pool:  unavailable
+
+- name: write new config
+  command: "echo 'ECS_CLUSTER={{new_cluster}}' > /tmp/ecs.config"
+
+- name: make sure it is configured for our cluster
+  command: "scp /tmp/ecs.config {{ ec2_instance_ip }}/etc/ecs/ecs.config"
+
+- name: Run task
+  ecs_task:
+      operation: run
+      cluster: "{{ new_cluster }}"
+      task_definition: "{{ new_cluster ~ '-task' }}"
+      count: 2
+      started_by: ansible_user
+  register: task_output
+
+- name: Show outputs
+  debug: var="task_output"
+  when: debug is defined and debug
+
+- name: Start a task
+  ecs_task:
+      operation: start
+      cluster: "{{ new_cluster }}"
+      task_definition: "{{ new_cluster ~ '-task' }}"
+      container_instances:
+      - "{{ ecs_container_instance }}"
+      started_by: ansible_user
+  register: task_output
+
+- name: Show outputs
+  debug: var="task_output"
+  when: debug is defined and debug
+
+- name: Stop a task
+  ecs_task:
+      operation: stop
+      cluster: "{{ new_cluster }}"
+      task: ABC
+  register: task_output
+
+- name: Show outputs
+  debug: var="task_output"
+  when: debug is defined and debug

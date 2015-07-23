@@ -1,0 +1,29 @@
+---
+
+- name: Check service facts with no details
+  ecs_service_facts:
+    cluster: test-cluster
+  register: result
+
+- name: Show outputs
+  debug: var="result"
+
+- name: assert results were returned
+  assert:
+    that:
+      - '"ansible_facts" in result'
+
+- name: Check service facts with details
+  ecs_service_facts:
+    cluster: test-cluster
+    service: test-cluster-service
+    details: "true"
+  register: result
+
+- name: Show outputs
+  debug: var="result"
+
+- name: assert results were returned
+  assert:
+    that:
+      - '"ansible_facts" in result'

@@ -1,0 +1,28 @@
+---
+- name: Get task definition without details
+  ecs_task_facts:
+    cluster: "{{ new_cluster }}"
+  register: task_output
+
+- name: Show outputs
+  debug: var="task_output"
+
+- name: assert ansible_facts exist for cluster
+  assert:
+    that:
+      - '"ansible_facts" in task_output'
+      - '"tasks" in task_output.ansible_facts'
+
+- name: Get task definitions with details
+  ecs_task_facts:
+    cluster: "{{ new_cluster }}"
+  register: task_output
+
+- name: Show outputs
+  debug: var="task_output"
+
+- name: assert ansible_facts exist for cluster
+  assert:
+    that:
+      - '"ansible_facts" in task_output'
+      - '"tasks" in task_output.ansible_facts'

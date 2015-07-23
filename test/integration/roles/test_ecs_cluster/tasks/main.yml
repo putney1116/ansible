@@ -1,0 +1,60 @@
+---
+# Basic provisioning example
+- name: Check cluster status
+  ecs_cluster_facts:
+  register: outputs
+
+- name: Debug facts
+  debug: var="outputs"
+
+- name: Create cluster
+  ecs_cluster:
+    name: "{{ new_cluster }}"
+    state: present
+  register: result
+
+- name: Show outputs
+  debug: var="result.cluster"
+
+- name: assert new cluster was created
+  assert:
+    that:
+      - '"cluster" in result'
+      - '"status" in result.cluster'
+      - 'result.cluster.status == "ACTIVE"'
+      - 'result.cluster.clusterName == "{{ new_cluster }}"'
+
+- name: Delete cluster
+  ecs_cluster:
+    name: "{{ new_cluster }}"
+    state: absent
+  register: result
+
+- name: Show outputs
+  debug: var="result.cluster.status"
+
+# The cluster delete module returns the status of the cluster before delete
+- name: assert cluster was deleted
+  assert:
+    that:
+      - '"cluster" in result'
+      - '"status" in result.cluster'
+      - 'result.cluster.status == "ACTIVE"'
+
+- name: Check cluster status
+  ecs_cluster_facts:
+    cluster: "{{ new_cluster }}"
+    details: "true"
+  register: result
+
+- name: Show outputs
+  debug: var="result"
+
+- name: assert new cluster was deleted
+  assert:
+    that:
+      - '"ansible_facts" in result'
+      - '"clusters" in result.ansible_facts'
+      - '"status" in result.ansible_facts.clusters[0]'
+      - 'result.ansible_facts.clusters[0].status == "INACTIVE"'
+      - 'result.ansible_facts.clusters[0].clusterName == "{{ new_cluster }}"'

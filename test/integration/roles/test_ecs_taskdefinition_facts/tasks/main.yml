@@ -1,0 +1,28 @@
+--- 
+- name: "Get task definition without details"
+  ecs_taskdefinition_facts: ~
+  register: task_output
+
+- name: "Show outputs"
+  debug: var="task_output"
+
+- name: "assert ansible_facts exist for task definition without details"
+  assert: 
+    that: 
+      - '"ansible_facts" in task_output'
+      - '"task_definitions" in task_output.ansible_facts'
+
+- name: "Get task definition with details"
+  ecs_taskdefinition_facts:
+    details: "true"
+    name: "{{ new_cluster }}"
+  register: task_output 
+
+- name: "Show outputs"
+  debug: var="task_output"
+
+- name: "assert ansible_facts exist for task definition without details"
+  assert: 
+    that: 
+      - '"ansible_facts" in task_output'
+      - '"task_definitions" in task_output.ansible_facts'

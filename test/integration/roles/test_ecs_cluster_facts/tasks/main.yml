@@ -1,0 +1,32 @@
+---
+# This test doesn't assume any state of clusters, just that the facts
+# module returns
+
+- name: Check cluster facts no details
+  ecs_cluster_facts:
+    cluster: "{{ new_cluster }}"
+  register: task_output
+
+- name: Show outputs
+  debug: var="task_output"
+
+- name: assert ansible_facts exist for cluster
+  assert:
+    that:
+      - '"ansible_facts" in task_output'
+      - '"clusters" in task_output.ansible_facts'
+
+- name: Check cluster facts with details
+  ecs_cluster_facts:
+    cluster: "{{ new_cluster }}"
+    details: "true"
+  register: task_output
+
+- name: Show outputs
+  debug: var="task_output"
+
+- name: assert ansible_facts exist
+  assert:
+    that:
+      - '"ansible_facts" in task_output'
+      - '"clusters" in task_output.ansible_facts'

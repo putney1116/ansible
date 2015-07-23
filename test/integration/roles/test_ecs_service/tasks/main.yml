@@ -1,0 +1,20 @@
+---
+- name: Create service
+  ecs_service:
+    state: present
+    name: console-test-service
+    cluster: console-sample-app-static
+    task_definition: console-test-tdn:3
+    desired_count: 2
+  register: task_output
+- name: Show outputs
+  debug: var="task_output"
+
+- name: Create task definition
+  ecs_service:
+    state: absent
+    name: console-test-service
+    cluster: console-sample-app-static
+  register: task_output
+- name: Show outputs
+  debug: var="task_output"
